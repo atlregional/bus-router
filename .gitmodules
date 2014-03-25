@@ -1,0 +1,3 @@
+[submodule "otp_gtfs"]
+	path = otp_gtfs
+	url = git@github.com:demory/otp_gtfs.git
