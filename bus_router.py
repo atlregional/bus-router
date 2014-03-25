@@ -86,7 +86,9 @@ def processPolylines():
 		shapeswriter = csv.writer(shapesfile)
 		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
 		for trip, stops in data.items():
+			print trip
 			count = 0
+			legpoints = []
 			for i in range(20):
 				filepath = os.path.join(datadir, trip + "_" + str(i) + ".json")
 				if(os.path.exists(filepath)):
@@ -96,15 +98,22 @@ def processPolylines():
 					for leg in data['routes'][0]['legs']:
 						for step in leg['steps']:
 							points = decode(step['polyline']['points'])
+							# print points
 							for point in points:
+								dictpoint = {'x': point[0], 'y': point[1]}
+								legpoints.append(dictpoint)
 								point = list(point)
 								point.insert(0, trip)
 								point.insert(1, count)
 								point.insert(2, "")
-								shapeswriter.writerow(point)
+								# shapeswriter.writerow(point)
 								count += 1
-
-					json_data.close()
+					gmaps.close()
+				print legpoints
+				simplified = simplify(legpoints, .1, True)
+				print "new:" + str(simplified)
+				# for point in simplified:
+				# 	print
 
 def modifyTrips():
 	datadir = os.path.join(os.getcwd(), 'data')
@@ -119,7 +128,10 @@ def modifyTrips():
 					tripswriter.writerow(row)
 				else:
 					# print row[3].replace(" ","") + "_" + row[0]
-					row.append(row[3].replace(" ","") + "_" + row[0])
+					row.insert(6, row[3].replace(" ","") + "_" + row[0])
+					#  remove that pesky last comma
+					print row[0]
+					string = [row[0] + ',' + row[1] + ',' + row[2] + ',' + row[3] + ',' + row[4] + ',' + row[5] + ',' + row[6] + ',' + row[7]]
 					tripswriter.writerow(row)
 				count += 1
 
@@ -172,14 +184,16 @@ def getDirections():
 
 		for stop  in stops['stops']:
 			lastCheck = cmp(stop, last)
-			print stop
+			# print stop
 			# print diff
 			# print trip
 			if stopcount == 1:
+				print "first stop"
 				origin = stop['lat'] + "," + stop['lon']
 			elif stopcount == 9:
 				waypoints += stop['lat'] + "," + stop['lon']
 			elif stopcount == 10 or lastCheck == 0:
+				print "getting dirs..."
 				dest = stop['lat'] + "," + stop['lon']
 				params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyD2KTHZHT8Bl-JzgF3yI1t7Ln05udSu318'})
 				print params
@@ -210,19 +224,27 @@ def processGtfs():
 		tripsreader = csv.DictReader(tripsfile)
 		for trip in tripsreader:
 			
-			tripname = trip['trip_headsign'].replace(" ","") + "_" + trip['route_id']
+			tripname = trip['trip_headsign'].replace(" ","").replace("/","") + "_" + trip['route_id']
 			if tripname in names:
 				continue
 			else:
 				names[trip['trip_id']] = tripname
-				print tripname
-			
+				# print tripname
+	with open('names.json', 'wb') as namesfile:
+		json.dump(names, namesfile)
+
 	# read times into dict
 	with open(timespath, 'rb') as timesfile:
 		timesreader = csv.DictReader(timesfile)
 		tripscount = 0
 		stopscount = 0
+		curr_trip = ""
 		for time in timesreader:
+			# print time['trip_id']
+			# print names[time['trip_id']]
+			
+			tripname = ""
+			# if names[time['trip_id']] in names:
 			tripname = names[time['trip_id']]
 			if stopscount == 0 and not (tripname in trips):
 				trips[tripname]['stops'] = []
@@ -267,5 +289,125 @@ def processGtfs():
 	# iterate on legs and steps...
 	# add points to array (each with their own number)
 	# 
+
+
+
+
+def getSquareDistance(p1, p2):
+	"""
+	Square distance between two points
+	"""
+	dx = p1['x'] - p2['x']
+	dy = p1['y'] - p2['y']
+
+	return dx * dx + dy * dy
+
+
+def getSquareSegmentDistance(p, p1, p2):
+	"""
+	Square distance between point and a segment
+	"""
+	x = p1['x']
+	y = p1['y']
+
+	dx = p2['x'] - x
+	dy = p2['y'] - y
+
+	if dx != 0 or dy != 0:
+		t = ((p['x'] - x) * dx + (p['y'] - y) * dy) / (dx * dx + dy * dy)
+
+		if t > 1:
+			x = p2['x']
+			y = p2['y']
+		elif t > 0:
+			x += dx * t
+			y += dy * t
+
+	dx = p['x'] - x
+	dy = p['y'] - y
+
+	return dx * dx + dy * dy
+
+
+def simplifyRadialDistance(points, tolerance):
+	length = len(points)
+	prev_point = points[0]
+	new_points = [prev_point]
+
+	for i in range(length):
+		point = points[i]
+
+		if getSquareDistance(point, prev_point) > tolerance:
+			new_points.append(point)
+			prev_point = point
+
+	if prev_point != point:
+		new_points.append(point)
+
+	return new_points
+
+
+def simplifyDouglasPeucker(points, tolerance):
+	length = len(points)
+	markers = [0] * length  # Maybe not the most efficent way?
+
+	first = 0
+	last = length - 1
+
+	first_stack = []
+	last_stack = []
+
+	new_points = []
+
+	markers[first] = 1
+	markers[last] = 1
+
+	while last:
+		max_sqdist = 0
+
+		for i in range(first, last):
+			sqdist = getSquareSegmentDistance(points[i], points[first], points[last])
+
+			if sqdist > max_sqdist:
+				index = i
+				max_sqdist = sqdist
+
+		if max_sqdist > tolerance:
+			markers[index] = 1
+
+			first_stack.append(first)
+			last_stack.append(index)
+
+			first_stack.append(index)
+			last_stack.append(last)
+
+		# Can pop an empty array in Javascript, but not Python, so check
+		# the length of the list first
+		if len(first_stack) == 0:
+			first = None
+		else:
+			first = first_stack.pop()
+
+		if len(last_stack) == 0:
+			last = None
+		else:
+			last = last_stack.pop()
+
+	for i in range(length):
+		if markers[i]:
+			new_points.append(points[i])
+
+	return new_points
+
+
+def simplify(points, tolerance=0.1, highestQuality=True):
+	sqtolerance = tolerance * tolerance
+
+	if not highestQuality:
+		points = simplifyRadialDistance(points, sqtolerance)
+
+	points = simplifyDouglasPeucker(points, sqtolerance)
+
+	return points
 if __name__ == '__main__':
-	modifyTrips()
+	processPolylines()
