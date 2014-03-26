@@ -27,12 +27,7 @@ Ever come across a GTFS feed without the optional shapes.txt file?  bus-router c
 
 There are a few finicky things about this script at the moment.
 
-### GTFS Formatting
-
-#### trips.txt
-`shape_id` must be the last column of the file (and must be blank... remember, that's what bus-router will create for you!)
-
-#### stop_times.txt
+### stop_times.txt
 `shape_dist_traveled` column must be empty (or not exist).  bus-router does not create shapes with the corresponding column, so sometimes validators yell at you if these two don't match up.
 
 ### Shapes limited to unique `route_id` + `trip_headsign` combinations
