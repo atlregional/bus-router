@@ -1,6 +1,6 @@
 import csv, os, subprocess, json, urllib, re, gpolyencode
 from pprint import pprint
-
+from django.contrib.gis.geos import Polygon, Point, MultiPoint, LineString, GeometryCollection
 class AutoVivification(dict):
 	"""Implementation of perl's autovivification feature."""
 	def __getitem__(self, item):
@@ -79,6 +79,8 @@ def processPolylines():
 	json_data=open('data.txt')
 	datadir = os.path.join(os.getcwd(), 'data')
 	gtfsdir = os.path.join(datadir, 'gtfs')
+	geojsondir = os.path.join(datadir, 'geojson')
+	polydir = os.path.join(datadir, 'polylines')
 	data = json.load(json_data, object_hook=_decode_dict)
 	# pprint(data)
 	json_data.close()
@@ -89,8 +91,9 @@ def processPolylines():
 			print trip
 			count = 0
 			legpoints = []
+			jsonpoints = []
 			for i in range(20):
-				filepath = os.path.join(datadir, trip + "_" + str(i) + ".json")
+				filepath = os.path.join(polydir, trip + "_" + str(i) + ".json")
 				if(os.path.exists(filepath)):
 					gmaps=open(filepath)
 					
@@ -101,38 +104,58 @@ def processPolylines():
 							# print points
 							for point in points:
 								dictpoint = {'x': point[0], 'y': point[1]}
+								
 								legpoints.append(dictpoint)
-								point = list(point)
-								point.insert(0, trip)
-								point.insert(1, count)
-								point.insert(2, "")
-								# shapeswriter.writerow(point)
+								
 								count += 1
 					gmaps.close()
-				print legpoints
-				simplified = simplify(legpoints, .1, True)
-				print "new:" + str(simplified)
-				# for point in simplified:
-				# 	print
+			# print legpoints
+			
+			# print ls.geojson
+			if not legpoints:
+				continue
+			else:
+				simplified = simplify(legpoints, .0002, True)
+				# print "new:" + str(simplified)
+				for point in simplified:
+					pnt = Point(point['x'], point['y'])
+					jsonpoints.append(pnt)
+					shppoint = [point['x'], point['y']]
+					shppoint.insert(0, trip)
+					shppoint.insert(1, count)
+					shppoint.insert(2, "")
+					shapeswriter.writerow(shppoint)
+				ls = LineString(jsonpoints)
+				gc = GeometryCollection(ls)
+
+				geoj = gc.geojson
+				gtfsfile = os.path.join(geojsondir, trip + '.geojson')
+
+				with open(gtfsfile, 'wb') as tripgeo:
+					# json.dump(geoj, tripgeo)
+					tripgeo.write(geoj)
 
 def modifyTrips():
 	datadir = os.path.join(os.getcwd(), 'data')
 	gtfsdir = os.path.join(datadir, 'gtfs')
+	keys = ("route_id","service_id","trip_short_name","trip_headsign","route_short_name","direction_id","block_id","wheelchair_accessible","trip_bikes_allowed","trip_id","shape_id")
 	with open(gtfsdir + "/trips.txt", 'r+') as tripsfile:
-		tripsreader = csv.reader(tripsfile)
+		tripsreader = csv.DictReader(tripsfile)
 		with open(gtfsdir + "/trips_new.txt", 'wb') as tripsnew:
-			tripswriter = csv.writer(tripsnew)
+			tripswriter = csv.DictWriter(tripsnew, keys)
 			count = 0
 			for row in tripsreader:
 				if count == 0:
-					tripswriter.writerow(row)
+					tripswriter.writeheader()
 				else:
-					# print row[3].replace(" ","") + "_" + row[0]
-					row.insert(6, row[3].replace(" ","") + "_" + row[0])
+					# print row
+					newtrip = row['trip_headsign'].replace(" ","").replace("/","") + "_" + row['route_id']
+					row['shape_id'] = newtrip
+					# print row
 					#  remove that pesky last comma
-					print row[0]
-					string = [row[0] + ',' + row[1] + ',' + row[2] + ',' + row[3] + ',' + row[4] + ',' + row[5] + ',' + row[6] + ',' + row[7]]
+					# print row[0]
 					tripswriter.writerow(row)
+					# tripsnew.write(string)
 				count += 1
 
 def _decode_list(data):
@@ -164,6 +187,7 @@ def _decode_dict(data):
 def getDirections():
 	json_data=open('data.txt')
 	datadir = os.path.join(os.getcwd(), 'data')
+	polydir = os.path.join(datadir, 'polylines')
 	data = json.load(json_data, object_hook=_decode_dict)
 	# pprint(data)
 	json_data.close()
@@ -199,7 +223,7 @@ def getDirections():
 				print params
 				response = urllib.urlopen(base + params)
 				data = json.load(response)
-				with open(datadir + "/" + trip + "_" + str(segmentcount) + '.json', 'w') as outfile:
+				with open(polydir + "/" + trip + "_" + str(segmentcount) + '.json', 'w') as outfile:
 					json.dump(data, outfile)
 				stopcount = 0
 				waypoints = ""
@@ -218,6 +242,7 @@ def processGtfs():
 	stopspath = os.path.join(datadir, 'stops.txt')
 	timespath = os.path.join(datadir, 'stop_times.txt')
 	tripspath = os.path.join(datadir, 'trips.txt')
+
 	trips = AutoVivification()
 	names = {}
 	with open(tripspath, 'rb') as tripsfile:
@@ -225,7 +250,7 @@ def processGtfs():
 		for trip in tripsreader:
 			
 			tripname = trip['trip_headsign'].replace(" ","").replace("/","") + "_" + trip['route_id']
-			if tripname in names:
+			if tripname in names.values():
 				continue
 			else:
 				names[trip['trip_id']] = tripname
@@ -244,8 +269,11 @@ def processGtfs():
 			# print names[time['trip_id']]
 			
 			tripname = ""
-			# if names[time['trip_id']] in names:
-			tripname = names[time['trip_id']]
+			if time['trip_id'] in names.keys():
+				tripname = names[time['trip_id']]
+			else:
+				continue
+
 			if stopscount == 0 and not (tripname in trips):
 				trips[tripname]['stops'] = []
 				nextStop = {'id': time["stop_id"]}
@@ -410,4 +438,7 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 
 	return points
 if __name__ == '__main__':
+	processGtfs()
+	getDirections()
 	processPolylines()
+	modifyTrips()
