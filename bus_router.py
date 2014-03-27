@@ -97,20 +97,27 @@ def processPolylines():
 				if(os.path.exists(filepath)):
 					gmaps=open(filepath)
 					
-					data = json.load(gmaps)
-					try:
-						for leg in data['routes'][0]['legs']:
-							for step in leg['steps']:
-								points = decode(step['polyline']['points'])
-								# print points
-								for point in points:
-									dictpoint = {'x': point[0], 'y': point[1]}
+					linedata = json.load(gmaps)
+					# print linedata['routes'][0]['overview_polyline']
+					points = decode(linedata['routes'][0]['overview_polyline']['points'])
+					# print points
+					for point in points:
+						dictpoint = {'x': point[0], 'y': point[1]}
+						
+						legpoints.append(dictpoint)
+					# try:		
+						# for leg in linedata['routes'][0]['legs']:
+						# 	for step in leg['steps']:
+						# 		points = decode(step['polyline']['points'])
+						# 		# print points
+						# 		for point in points:
+						# 			dictpoint = {'x': point[0], 'y': point[1]}
 									
-									legpoints.append(dictpoint)
+						# 			legpoints.append(dictpoint)
 									
 									
-					except:
-						print "leg don't exist"
+					# except:
+					# 	print "leg don't exist"
 					gmaps.close()
 			# print legpoints
 			
@@ -199,7 +206,9 @@ def getDirections():
 	for trip, stops in data.items():
 		# if trip == "MidtownAtlanta_14" or trip == "IndianTrP-R_3" or trip == "SugarloafMills_14" or trip == "DoravilleMarta_10" or trip == "LiveOakPkwy_9" or trip == "I-985P-R_2":
 		# 	continue
-		# print trip
+		with open("log.txt", 'a') as log:
+			log.write(trip + '\n')
+		print trip
 		# print stops
 		stopcount = 1
 		segmentcount = 0
@@ -217,32 +226,40 @@ def getDirections():
 			if stopcount == 1:
 				# print "first stop"
 				origin = stop['lat'] + "," + stop['lon']
-				if lastCheck == 0:
+
+				if segmentcount > 0:
 					origin = stops['stops'][index - 1]['lat'] + "," + stops['stops'][index - 1]['lon']
+					waypoints += stop['lat'] + "," + stop['lon'] + "|"
+
+				if lastCheck == 0:
+					dest = stop['lat'] + "," + stop['lon']
 					directionscall(stop, origin, dest, waypoints, fname)
-					stopcount = 0
 					waypoints = ""
 					segmentcount += 1
 					continue
 
+				stopcount += 1
+
 			elif stopcount == 10 or lastCheck == 0:
+				dest = stop['lat'] + "," + stop['lon'] 
 				directionscall(stop, origin, dest, waypoints, fname)
-				stopcount = 0
+				stopcount = 1
 				waypoints = ""
 				segmentcount += 1
+				continue
 			else:
 				waypoints += stop['lat'] + "," + stop['lon'] + "|"
+				stopcount += 1
 
-			stopcount += 1
 
 def directionscall(stop, origin, dest, waypoints, fname):
 	print "getting dirs..."
 	base = 'https://maps.googleapis.com/maps/api/directions/json?'
-	dest = stop['lat'] + "," + stop['lon']
-	params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyD2KTHZHT8Bl-JzgF3yI1t7Ln05udSu318'})
+	params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyBxCIum1F7gg1y_OcKBU5R1-_pMXIA--Ho'})
 	# print params
-	if waypoints == "":
-		print base + params
+	# if waypoints == "":
+	with open("log.txt", 'a') as log:
+		log.write(base + params + '\n')
 	response = urllib.urlopen(base + params)
 	data = json.load(response)
 	with open(fname, 'w') as outfile:
