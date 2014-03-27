@@ -3,6 +3,10 @@ bus-router
 
 Ever come across a GTFS feed without the optional shapes.txt file?  bus-router creates a shapes.txt file for stop_times.txt using the Google Maps Directions API.  The routing is not perfect, but it gets the dirty parts out of the way.
 
+This script is probably most relevant for those routes that have wide stop spacing (for example, express bus routes), where you have stretches of uncharted territory between stops.  It still works for local bus routes, but the value added is less.
+
+Final word: you can adjust the "smoothness" of the final shapes, by changing the second argument for the `simplify()` call.  Right now it's at `.0002`, make it larger for more jagged-y shapes, smaller for smoother.
+
 ## Usage
 
 1. Clone the repo.
