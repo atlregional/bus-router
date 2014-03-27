@@ -89,7 +89,7 @@ def processPolylines():
 		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
 		for trip, stops in data.items():
 			print trip
-			count = 0
+			
 			legpoints = []
 			jsonpoints = []
 			for i in range(20):
@@ -98,16 +98,19 @@ def processPolylines():
 					gmaps=open(filepath)
 					
 					data = json.load(gmaps)
-					for leg in data['routes'][0]['legs']:
-						for step in leg['steps']:
-							points = decode(step['polyline']['points'])
-							# print points
-							for point in points:
-								dictpoint = {'x': point[0], 'y': point[1]}
-								
-								legpoints.append(dictpoint)
-								
-								count += 1
+					try:
+						for leg in data['routes'][0]['legs']:
+							for step in leg['steps']:
+								points = decode(step['polyline']['points'])
+								# print points
+								for point in points:
+									dictpoint = {'x': point[0], 'y': point[1]}
+									
+									legpoints.append(dictpoint)
+									
+									
+					except:
+						print "leg don't exist"
 					gmaps.close()
 			# print legpoints
 			
@@ -117,6 +120,7 @@ def processPolylines():
 			else:
 				simplified = simplify(legpoints, .0002, True)
 				# print "new:" + str(simplified)
+				count = 0
 				for point in simplified:
 					pnt = Point(point['x'], point['y'])
 					jsonpoints.append(pnt)
@@ -125,6 +129,7 @@ def processPolylines():
 					shppoint.insert(1, count)
 					shppoint.insert(2, "")
 					shapeswriter.writerow(shppoint)
+					count += 1
 				ls = LineString(jsonpoints)
 				gc = GeometryCollection(ls)
 
@@ -138,25 +143,24 @@ def processPolylines():
 def modifyTrips():
 	datadir = os.path.join(os.getcwd(), 'data')
 	gtfsdir = os.path.join(datadir, 'gtfs')
-	keys = ("route_id","service_id","trip_short_name","trip_headsign","route_short_name","direction_id","block_id","wheelchair_accessible","trip_bikes_allowed","trip_id","shape_id")
+	
 	with open(gtfsdir + "/trips.txt", 'r+') as tripsfile:
 		tripsreader = csv.DictReader(tripsfile)
+		keys = tripsreader.fieldnames
 		with open(gtfsdir + "/trips_new.txt", 'wb') as tripsnew:
 			tripswriter = csv.DictWriter(tripsnew, keys)
-			count = 0
+			tripswriter.writeheader()
 			for row in tripsreader:
-				if count == 0:
-					tripswriter.writeheader()
-				else:
-					# print row
-					newtrip = row['trip_headsign'].replace(" ","").replace("/","") + "_" + row['route_id']
-					row['shape_id'] = newtrip
-					# print row
-					#  remove that pesky last comma
-					# print row[0]
-					tripswriter.writerow(row)
-					# tripsnew.write(string)
-				count += 1
+				
+				# print row
+				newtrip = row['trip_headsign'].replace(" ","").replace("/","") + "_" + row['route_id']
+				row['shape_id'] = newtrip
+				# print row
+				#  remove that pesky last comma
+				# print row[0]
+				tripswriter.writerow(row)
+				# tripsnew.write(string)
+				
 
 def _decode_list(data):
 	rv = []
@@ -191,7 +195,7 @@ def getDirections():
 	data = json.load(json_data, object_hook=_decode_dict)
 	# pprint(data)
 	json_data.close()
-	base = 'https://maps.googleapis.com/maps/api/directions/json?'
+	
 	for trip, stops in data.items():
 		# if trip == "MidtownAtlanta_14" or trip == "IndianTrP-R_3" or trip == "SugarloafMills_14" or trip == "DoravilleMarta_10" or trip == "LiveOakPkwy_9" or trip == "I-985P-R_2":
 		# 	continue
@@ -202,29 +206,27 @@ def getDirections():
 		origin = ""
 		dest = ""
 		points = ""
-		previous = ""
+		previous = {}
 		waypoints = ""
 		last = stops['stops'][-1]
-
-		for stop  in stops['stops']:
+		
+		for index, stop  in enumerate(stops['stops']):
+			fname = polydir + "/" + trip + "_" + str(segmentcount) + '.json'
 			lastCheck = cmp(stop, last)
-			# print stop
-			# print diff
-			# print trip
+			# print lastCheck
 			if stopcount == 1:
-				print "first stop"
+				# print "first stop"
 				origin = stop['lat'] + "," + stop['lon']
-			elif stopcount == 9:
-				waypoints += stop['lat'] + "," + stop['lon']
+				if lastCheck == 0:
+					origin = stops['stops'][index - 1]['lat'] + "," + stops['stops'][index - 1]['lon']
+					directionscall(stop, origin, dest, waypoints, fname)
+					stopcount = 0
+					waypoints = ""
+					segmentcount += 1
+					continue
+
 			elif stopcount == 10 or lastCheck == 0:
-				print "getting dirs..."
-				dest = stop['lat'] + "," + stop['lon']
-				params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyD2KTHZHT8Bl-JzgF3yI1t7Ln05udSu318'})
-				print params
-				response = urllib.urlopen(base + params)
-				data = json.load(response)
-				with open(polydir + "/" + trip + "_" + str(segmentcount) + '.json', 'w') as outfile:
-					json.dump(data, outfile)
+				directionscall(stop, origin, dest, waypoints, fname)
 				stopcount = 0
 				waypoints = ""
 				segmentcount += 1
@@ -233,7 +235,19 @@ def getDirections():
 
 			stopcount += 1
 
-
+def directionscall(stop, origin, dest, waypoints, fname):
+	print "getting dirs..."
+	base = 'https://maps.googleapis.com/maps/api/directions/json?'
+	dest = stop['lat'] + "," + stop['lon']
+	params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyD2KTHZHT8Bl-JzgF3yI1t7Ln05udSu318'})
+	# print params
+	if waypoints == "":
+		print base + params
+	response = urllib.urlopen(base + params)
+	data = json.load(response)
+	with open(fname, 'w') as outfile:
+		json.dump(data, outfile)
+	
 
 def processGtfs():
 	
@@ -274,11 +288,10 @@ def processGtfs():
 			else:
 				continue
 
-			if stopscount == 0 and not (tripname in trips):
+			if not (tripname in trips):
 				trips[tripname]['stops'] = []
 				nextStop = {'id': time["stop_id"]}
 				trips[tripname]['stops'].append(nextStop)
-				stopscount += 1
 				curr_trip = tripname
 				tripscount += 1
 
@@ -287,9 +300,8 @@ def processGtfs():
 				trips[tripname]['stops'].append(nextStop)
 				stopscount += 1
 				curr_trip = tripname
-
 			else:
-				stopscount = 0
+				continue
 	# print trips
 	# read stops into dict
 	with open(stopspath, 'rb') as stopsfile:
