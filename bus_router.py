@@ -546,9 +546,9 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 
 	return points
 if __name__ == '__main__':
-	# processGtfs()
-	# shapesToGeojson()
+	processGtfs()
+	shapesToGeojson()
 	geojsonToShapes()
-	# getDirections()
-	# processPolylines()
-	# modifyTrips()
+	getDirections()
+	processPolylines()
+	modifyTrips()
