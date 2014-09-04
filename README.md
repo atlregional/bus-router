@@ -25,7 +25,9 @@ Need Python 2.7 and pip to install geojson package.
 
     Copy `stop_times.txt`, `trips.txt`, and `stops.txt` into `bus-router/data/gtfs`.
     
-3. Run the script
+3. Change file name `env.json.tmp` to `env.json` and replace `"INSERT KEY HERE"` your Google API key.
+
+4. Run the script
 
     `cd bus-router`
 
