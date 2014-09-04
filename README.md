@@ -9,7 +9,7 @@ Final word: you can adjust the "smoothness" of the final shapes, by changing the
 
 ## Requirements
 
-Need Python 2.7 and pip to install .
+Need Python 2.7 and pip to install geojson package.
 
 ## Usage
 

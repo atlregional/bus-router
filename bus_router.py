@@ -202,6 +202,9 @@ def _decode_dict(data):
 
 def getDirections():
 	json_data=open('data.txt')
+	with open("env.json", 'rb') as envfile:
+		env = json.load(envfile)
+		google_key = env["google_key"]
 	datadir = os.path.join(os.getcwd(), 'data')
 	polydir = os.path.join(datadir, 'polylines')
 	data = json.load(json_data, object_hook=_decode_dict)
@@ -209,8 +212,6 @@ def getDirections():
 	json_data.close()
 	
 	for trip, stops in data.items():
-		# if trip == "MidtownAtlanta_14" or trip == "IndianTrP-R_3" or trip == "SugarloafMills_14" or trip == "DoravilleMarta_10" or trip == "LiveOakPkwy_9" or trip == "I-985P-R_2":
-		# 	continue
 		with open("log.txt", 'a') as log:
 			log.write(trip + '\n')
 		print trip
@@ -238,7 +239,7 @@ def getDirections():
 
 				if lastCheck == 0:
 					dest = stop['lat'] + "," + stop['lon']
-					directionscall(stop, origin, dest, waypoints, fname)
+					directionscall(google_key, stop, origin, dest, waypoints, fname)
 					waypoints = ""
 					segmentcount += 1
 					continue
@@ -247,7 +248,7 @@ def getDirections():
 
 			elif stopcount == 9 or lastCheck == 0:
 				dest = stop['lat'] + "," + stop['lon'] 
-				directionscall(stop, origin, dest, waypoints, fname)
+				directionscall(google_key, stop, origin, dest, waypoints, fname)
 				stopcount = 1
 				waypoints = ""
 				segmentcount += 1
@@ -257,10 +258,10 @@ def getDirections():
 				stopcount += 1
 
 
-def directionscall(stop, origin, dest, waypoints, fname):
+def directionscall(google_key, stop, origin, dest, waypoints, fname):
 	print "getting dirs..."
 	base = 'https://maps.googleapis.com/maps/api/directions/json?'
-	params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': 'AIzaSyBxCIum1F7gg1y_OcKBU5R1-_pMXIA--Ho'})
+	params = urllib.urlencode({'origin': origin, 'destination': dest, 'waypoints': waypoints, 'sensor': 'false','key': google_key})
 	# print params
 	# if waypoints == "":
 	with open("log.txt", 'a') as log:
@@ -547,8 +548,11 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 	return points
 if __name__ == '__main__':
 	processGtfs()
-	shapesToGeojson()
-	geojsonToShapes()
+
+	# The following methods are for doing conversions between shapes.txt and geojson files (and vice versa).
+	# shapesToGeojson()
+	# geojsonToShapes()
+
 	getDirections()
 	processPolylines()
 	modifyTrips()
