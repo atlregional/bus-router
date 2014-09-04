@@ -7,15 +7,19 @@ This script is probably most relevant for those routes that have wide stop spaci
 
 Final word: you can adjust the "smoothness" of the final shapes, by changing the second argument for the `simplify()` call.  Right now it's at `.0002`, make it larger for more jagged-y shapes, smaller for smoother.
 
+## Requirements
+
+Need Python 2.7 and pip to install .
+
 ## Usage
 
 1. Clone the repo.
 
     `git clone git@github.com:atlregional/bus-router.git`
 
-2. Get yo' python packages
+2. Get packages for geojson libraries
 	
-	`pip install Django # for geoDjango geojson libraries`
+	`pip install geojson`
 
 2. Grab your GTFS data.
 
