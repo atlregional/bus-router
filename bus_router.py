@@ -1,6 +1,7 @@
 import csv, os, subprocess, json, urllib, re, gpolyencode
 from pprint import pprint
-from django.contrib.gis.geos import Polygon, Point, MultiPoint, LineString, GeometryCollection
+from geojson import LineString, Point, FeatureCollection, Feature
+import geojson
 class AutoVivification(dict):
 	"""Implementation of perl's autovivification feature."""
 	def __getitem__(self, item):
@@ -92,13 +93,17 @@ def processPolylines():
 			
 			legpoints = []
 			jsonpoints = []
+
 			for i in range(20):
 				filepath = os.path.join(polydir, trip + "_" + str(i) + ".json")
 				if(os.path.exists(filepath)):
 					gmaps=open(filepath)
 					
 					linedata = json.load(gmaps)
-					# print linedata['routes'][0]['overview_polyline']
+					print trip + "_" + str(i)
+					if linedata['status'] != "OK":
+						continue
+					print linedata['routes'][0]['overview_polyline']['points']
 					points = decode(linedata['routes'][0]['overview_polyline']['points'])
 					# print points
 					for point in points:
@@ -240,7 +245,7 @@ def getDirections():
 
 				stopcount += 1
 
-			elif stopcount == 10 or lastCheck == 0:
+			elif stopcount == 9 or lastCheck == 0:
 				dest = stop['lat'] + "," + stop['lon'] 
 				directionscall(stop, origin, dest, waypoints, fname)
 				stopcount = 1
@@ -265,10 +270,84 @@ def directionscall(stop, origin, dest, waypoints, fname):
 	with open(fname, 'w') as outfile:
 		json.dump(data, outfile)
 	
+def shapesToGeojson():
+	json_data=open('data.txt')
+	datadir = os.path.join(os.getcwd(), 'data')
+	gtfsdir = os.path.join(datadir, 'gtfs')
+	geojsondir = os.path.join(datadir, 'geojson')
+	data = json.load(json_data, object_hook=_decode_dict)
+	json_data.close()
+	with open(gtfsdir + "/shapes.txt", 'rb') as shapesfile:
+		shapesreader = csv.DictReader(shapesfile)
+		keys = shapesreader.fieldnames
+
+		jsonpoints = []
+		features = []
+		currentTrip = ''
+		for i, point in enumerate(shapesreader):
+			if point['shape_pt_sequence'] == '0' and i > 0:
+				currentTrip = point['shape_id']
+				ls = LineString(jsonpoints)
+				feature = Feature(geometry=ls, properties={"shape_id": currentTrip})
+				features.append(feature)
+				jsonpoints = []
+			else:
+				pnt = (float(point['shape_pt_lon']), float(point['shape_pt_lat']))
+				jsonpoints.append(pnt)
+				
+		fc = FeatureCollection(features)
+		print fc
+
+		geojsonfile = os.path.join(geojsondir, 'shapes.geojson')
+
+		with open(geojsonfile, 'wb') as tripgeo:
+			geojson.dump(fc, tripgeo)
+
+
+
+	# 		else:
+	# 			simplified = simplify(legpoints, .0002, True)
+	# 			# print "new:" + str(simplified)
+	# 			count = 0
+	# 			for point in simplified:
+	# 				pnt = Point(point['x'], point['y'])
+	# 				jsonpoints.append(pnt)
+	# 				shppoint = [point['x'], point['y']]
+	# 				shppoint.insert(0, trip)
+	# 				shppoint.insert(1, count)
+	# 				shppoint.insert(2, "")
+	# 				shapeswriter.writerow(shppoint)
+	# 				count += 1
+	# 			ls = LineString(jsonpoints)
+	# 			gc = GeometryCollection(ls)
+
+	# 			geoj = gc.geojson
+	# 			gtfsfile = os.path.join(geojsondir, trip + '.geojson')
+
+	# 			with open(gtfsfile, 'wb') as tripgeo:
+	# 				# json.dump(geoj, tripgeo)
+	# 				tripgeo.write(geoj)
+
+def geojsonToShapes():
+	datadir = os.path.join(os.getcwd(), 'data')
+	gtfsdir = os.path.join(datadir, 'gtfs')
+	geojsondir = os.path.join(datadir, 'geojson')
+
+	with open(gtfsdir + "/shapes_new.txt", 'wb') as shapesfile:
+		shapeswriter = csv.writer(shapesfile)
+		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
+
+		geojsonfile = os.path.join(geojsondir, 'shapes_new.geojson')
+
+		with open(geojsonfile, 'rb') as fc:
+			geo_fc = geojson.load(fc)
+			# print geo_fc
+			for feature in geo_fc['features']:
+				for i, coord in enumerate(feature['geometry']['coordinates']):
+					shapeswriter.writerow([feature['properties']['shape_id'],i,'',coord[0],coord[1]])
+
 
 def processGtfs():
-	
-
 	datadir = os.path.join(os.getcwd(), 'data/gtfs')
 	stopspath = os.path.join(datadir, 'stops.txt')
 	timespath = os.path.join(datadir, 'stop_times.txt')
@@ -467,7 +546,9 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 
 	return points
 if __name__ == '__main__':
-	processGtfs()
-	getDirections()
-	processPolylines()
-	modifyTrips()
+	# processGtfs()
+	# shapesToGeojson()
+	geojsonToShapes()
+	# getDirections()
+	# processPolylines()
+	# modifyTrips()
