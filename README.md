@@ -20,6 +20,7 @@ Need Python 2.7 and pip to install geojson package.
 2. Get packages for geojson libraries (use `sudo` if you experience permissions errors)
 	
 	`pip install geojson`
+
 	`pip install gpolyencode`
 
 2. Grab your GTFS data.
@@ -33,7 +34,21 @@ Need Python 2.7 and pip to install geojson package.
     `cd bus-router`
 
     `python bus-router.py`
-    
+  	
+## Optional command-line arguments
+
+```bash
+optional arguments:
+  -h, --help           show this help message and exit
+  -d osrm, --dir osrm  specify the directions provider, either "goog" or
+                       "osrm"
+  -s, --shapes         create shapes.txt from GeoJSON
+  -l, --lines          process polylines if directions calls have already been
+                       made
+  -t, --trips          modify trips file with new shape_ids (creates new file)
+  -g, --geojson        create GeoJSON from shapes.txt
+```
+
 ## Known Limitations
 
 There are a few finicky things about this script at the moment.

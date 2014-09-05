@@ -2,7 +2,9 @@ import csv, os, subprocess, json, urllib, re, gpolyencode
 from pprint import pprint
 from geojson import LineString, Point, FeatureCollection, Feature, GeometryCollection
 import geojson
-# from collections import OrderedDict
+import sys
+import argparse
+
 class AutoVivification(dict):
 	"""Implementation of perl's autovivification feature."""
 	def __getitem__(self, item):
@@ -10,7 +12,9 @@ class AutoVivification(dict):
 			return dict.__getitem__(self, item)
 		except KeyError:
 			value = self[item] = type(self)()
-			return value
+			return value		
+
+
 def decode(point_str):
 	'''Decodes a polyline that has been encoded using Google's algorithm
 	http://code.google.com/apis/maps/documentation/polylinealgorithm.html
@@ -102,29 +106,30 @@ def processPolylines():
 					
 					linedata = json.load(gmaps)
 					print trip + "_" + str(i)
-					if linedata['status'] != "OK":
-						continue
-					print linedata['routes'][0]['overview_polyline']['points']
-					points = decode(linedata['routes'][0]['overview_polyline']['points'])
-					# print points
-					for point in points:
-						dictpoint = {'x': point[0], 'y': point[1]}
-						
-						legpoints.append(dictpoint)
-					# try:		
-						# for leg in linedata['routes'][0]['legs']:
-						# 	for step in leg['steps']:
-						# 		points = decode(step['polyline']['points'])
-						# 		# print points
-						# 		for point in points:
-						# 			dictpoint = {'x': point[0], 'y': point[1]}
-									
-						# 			legpoints.append(dictpoint)
-									
-									
-					# except:
-					# 	print "leg don't exist"
-					gmaps.close()
+					if args.dir == 'goog':
+						if linedata['status'] != "OK":
+							continue
+						print linedata['routes'][0]['overview_polyline']['points']
+						points = decode(linedata['routes'][0]['overview_polyline']['points'])
+						# print points
+						for point in points:
+							dictpoint = {'x': point[0], 'y': point[1]}
+							
+							legpoints.append(dictpoint)
+						gmaps.close()
+					elif args.dir == 'osrm':
+						if linedata['status'] != 0:
+							continue
+						print linedata['route_geometry']
+						points = decode(linedata['route_geometry'])
+						# print points
+						for point in points:
+							dictpoint = {'x': point[0]/10, 'y': point[1]/10}
+							
+							legpoints.append(dictpoint)
+
+						gmaps.close()
+
 			# print legpoints
 			
 			# print ls.geojson
@@ -135,74 +140,6 @@ def processPolylines():
 				# print "new:" + str(simplified)
 				count = 0
 				for point in simplified:
-					pnt = Point(point['x'], point['y'])
-					jsonpoints.append(pnt)
-					shppoint = [point['x'], point['y']]
-					shppoint.insert(0, trip)
-					shppoint.insert(1, count)
-					shppoint.insert(2, "")
-					shapeswriter.writerow(shppoint)
-					count += 1
-				ls = LineString(jsonpoints)
-				gc = GeometryCollection(ls)
-
-				geoj = gc.geojson
-				gtfsfile = os.path.join(geojsondir, trip + '.geojson')
-
-				with open(gtfsfile, 'wb') as tripgeo:
-					# json.dump(geoj, tripgeo)
-					tripgeo.write(geoj)
-
-
-def processOsrmPolylines():
-	encoder = gpolyencode.GPolyEncoder()
-	json_data=open('data.txt')
-	datadir = os.path.join(os.getcwd(), 'data')
-	gtfsdir = os.path.join(datadir, 'gtfs')
-	geojsondir = os.path.join(datadir, 'geojson')
-	polydir = os.path.join(datadir, 'polylines')
-	data = json.load(json_data, object_hook=_decode_dict)
-	# pprint(data)
-	json_data.close()
-	with open(gtfsdir + "/shapes.txt", 'wb') as shapesfile:
-		shapeswriter = csv.writer(shapesfile)
-		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
-		for trip, stops in data.items():
-			print trip
-			
-			legpoints = []
-			jsonpoints = []
-
-			for i in range(20):
-				filepath = os.path.join(polydir, trip + "_" + str(i) + ".json")
-				if(os.path.exists(filepath)):
-					gmaps=open(filepath)
-					
-					linedata = json.load(gmaps)
-					print trip + "_" + str(i)
-					# print linedata
-					if linedata['status'] != 0:
-						continue
-					print linedata['route_geometry']
-					points = decode(linedata['route_geometry'])
-					# print points
-					for point in points:
-						dictpoint = {'x': point[0]/10, 'y': point[1]/10}
-						
-						legpoints.append(dictpoint)
-
-					gmaps.close()
-			# print legpoints
-			
-			if not legpoints:
-				continue
-			else:
-				simplified = simplify(legpoints, .0002, True)
-				# print "new:" + str(simplified)
-				count = 0
-				for point in simplified:
-					# print point['x']
-					# pnt = Point([point['x'], point['y']])
 					jsonpoints.append((point['x'], point['y']))
 					shppoint = [point['x'], point['y']]
 					shppoint.insert(0, trip)
@@ -217,8 +154,6 @@ def processOsrmPolylines():
 
 				with open(gtfsfile, 'wb') as tripgeo:
 					geojson.dump(gc, tripgeo)
-					# tripgeo.write(gc)
-
 
 def modifyTrips():
 	datadir = os.path.join(os.getcwd(), 'data')
@@ -309,8 +244,10 @@ def getDirections():
 
 				if lastCheck == 0:
 					dest = stop['lat'] + "," + stop['lon']
-					# directionscall(google_key, stop, origin, dest, waypoints, fname)
-					osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
+					if args.dir == 'goog':
+						directionscall(google_key, stop, origin, dest, waypoints, fname)
+					elif args.dir == 'osrm':
+						osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
 					waypoints = ""
 					osrmpoints = []
 					segmentcount += 1
@@ -320,8 +257,10 @@ def getDirections():
 
 			elif stopcount == 9 or lastCheck == 0:
 				dest = stop['lat'] + "," + stop['lon'] 
-				# directionscall(google_key, stop, origin, dest, waypoints, fname)
-				osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
+				if args.dir == 'goog':
+					directionscall(google_key, stop, origin, dest, waypoints, fname)
+				elif args.dir == 'osrm':
+					osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
 				stopcount = 1
 				waypoints = ""
 				osrmpoints = []
@@ -639,14 +578,38 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 	points = simplifyDouglasPeucker(points, sqtolerance)
 
 	return points
+
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("-d", "--dir", type=str, metavar='osrm', help='specify the directions provider, either "goog" or "osrm"')
+	parser.add_argument("-s", "--shapes", action='store_true', help='create shapes.txt from GeoJSON')
+	parser.add_argument("-l", "--lines", action='store_true', help='process polylines if directions calls have already been made')
+	parser.add_argument("-t", "--trips", action='store_true', help='modify trips file with new shape_ids (creates new file)')
+	parser.add_argument("-g", "--geojson", action='store_true', help='create GeoJSON from shapes.txt')
+	args = parser.parse_args()
+
+	if args.dir:
+		print "directions turned on using " + args.dir
+	else:
+		args.dir = 'osrm'
+	if args.shapes:
+		print "creating shapes.txt from GeoJSON"
+		shapesToGeojson()
+		sys.exit()
+	if args.geojson:
+		print "creating GeoJSON from shapes.txt"
+		geojsonToShapes()
+		sys.exit()
+	if args.lines:
+		print "processing polylines (no directions call or GTFS processing) using polylines from " + args.dir
+		processPolylines()
+		sys.exit()
+	if args.trips:
+		print 'modify trips file with new shape_ids (creates new file)'
+		modifyTrips()
+		sys.exit()
+
 	processGtfs()
-
-	# The following methods are for doing conversions between shapes.txt and geojson files (and vice versa).
-	# shapesToGeojson()
-	# geojsonToShapes()
-
 	getDirections()
-	# processPolylines()
-	processOsrmPolylines()
+	processPolylines()
 	modifyTrips()
