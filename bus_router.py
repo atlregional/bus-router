@@ -356,7 +356,7 @@ def geojsonToShapes():
 		shapeswriter = csv.writer(shapesfile)
 		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
 
-		geojsonfile = os.path.join(geojsondir, 'shapes_new.geojson')
+		geojsonfile = os.path.join(geojsondir, 'shapes.geojson')
 
 		with open(geojsonfile, 'rb') as fc:
 			geo_fc = geojson.load(fc)
