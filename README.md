@@ -5,6 +5,13 @@ Ever come across a GTFS feed without the optional shapes.txt file?  bus-router c
 
 :balloon::birthday:**NEW!!**:balloon::birthday: bus-router now creates valid GeoJSON from your shapes.txt file so that you can play with/view the routes in [geojson.io](http://geojson.io), [gist](https://gist.github.com), [GitHub](https://help.github.com/articles/mapping-geojson-files-on-github), etc.
 
+[Requirements](#requirements)
+[Usage](#usage)
+[Optional command-line arguments](#optional-command-line-arguments)
+[Usage](#usage)
+[Notes on Data Licensing](#notes-on-data-licensing)
+[Known Limitations](#known-limitations)
+
 ## Requirements
 
 Need Python 2.7 and pip to install geojson package.
