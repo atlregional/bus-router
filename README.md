@@ -17,9 +17,10 @@ Need Python 2.7 and pip to install geojson package.
 
     `git clone git@github.com:atlregional/bus-router.git`
 
-2. Get packages for geojson libraries
+2. Get packages for geojson libraries (use `sudo` if you experience permissions errors)
 	
 	`pip install geojson`
+	`pip install gpolyencode`
 
 2. Grab your GTFS data.
 

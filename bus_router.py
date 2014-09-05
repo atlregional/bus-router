@@ -1,7 +1,8 @@
 import csv, os, subprocess, json, urllib, re, gpolyencode
 from pprint import pprint
-from geojson import LineString, Point, FeatureCollection, Feature
+from geojson import LineString, Point, FeatureCollection, Feature, GeometryCollection
 import geojson
+# from collections import OrderedDict
 class AutoVivification(dict):
 	"""Implementation of perl's autovivification feature."""
 	def __getitem__(self, item):
@@ -152,6 +153,73 @@ def processPolylines():
 					# json.dump(geoj, tripgeo)
 					tripgeo.write(geoj)
 
+
+def processOsrmPolylines():
+	encoder = gpolyencode.GPolyEncoder()
+	json_data=open('data.txt')
+	datadir = os.path.join(os.getcwd(), 'data')
+	gtfsdir = os.path.join(datadir, 'gtfs')
+	geojsondir = os.path.join(datadir, 'geojson')
+	polydir = os.path.join(datadir, 'polylines')
+	data = json.load(json_data, object_hook=_decode_dict)
+	# pprint(data)
+	json_data.close()
+	with open(gtfsdir + "/shapes.txt", 'wb') as shapesfile:
+		shapeswriter = csv.writer(shapesfile)
+		shapeswriter.writerow(["shape_id","shape_pt_sequence","shape_dist_traveled","shape_pt_lon","shape_pt_lat"])
+		for trip, stops in data.items():
+			print trip
+			
+			legpoints = []
+			jsonpoints = []
+
+			for i in range(20):
+				filepath = os.path.join(polydir, trip + "_" + str(i) + ".json")
+				if(os.path.exists(filepath)):
+					gmaps=open(filepath)
+					
+					linedata = json.load(gmaps)
+					print trip + "_" + str(i)
+					# print linedata
+					if linedata['status'] != 0:
+						continue
+					print linedata['route_geometry']
+					points = decode(linedata['route_geometry'])
+					# print points
+					for point in points:
+						dictpoint = {'x': point[0]/10, 'y': point[1]/10}
+						
+						legpoints.append(dictpoint)
+
+					gmaps.close()
+			# print legpoints
+			
+			if not legpoints:
+				continue
+			else:
+				simplified = simplify(legpoints, .0002, True)
+				# print "new:" + str(simplified)
+				count = 0
+				for point in simplified:
+					# print point['x']
+					# pnt = Point([point['x'], point['y']])
+					jsonpoints.append((point['x'], point['y']))
+					shppoint = [point['x'], point['y']]
+					shppoint.insert(0, trip)
+					shppoint.insert(1, count)
+					shppoint.insert(2, "")
+					shapeswriter.writerow(shppoint)
+					count += 1
+				ls = LineString(jsonpoints)
+				gc = GeometryCollection([ls])
+
+				gtfsfile = os.path.join(geojsondir, trip + '.geojson')
+
+				with open(gtfsfile, 'wb') as tripgeo:
+					geojson.dump(gc, tripgeo)
+					# tripgeo.write(gc)
+
+
 def modifyTrips():
 	datadir = os.path.join(os.getcwd(), 'data')
 	gtfsdir = os.path.join(datadir, 'gtfs')
@@ -223,6 +291,7 @@ def getDirections():
 		points = ""
 		previous = {}
 		waypoints = ""
+		osrmpoints = []
 		last = stops['stops'][-1]
 		
 		for index, stop  in enumerate(stops['stops']):
@@ -236,11 +305,14 @@ def getDirections():
 				if segmentcount > 0:
 					origin = stops['stops'][index - 1]['lat'] + "," + stops['stops'][index - 1]['lon']
 					waypoints += stop['lat'] + "," + stop['lon'] + "|"
+					osrmpoints.append(stop['lat'] + "," + stop['lon'])
 
 				if lastCheck == 0:
 					dest = stop['lat'] + "," + stop['lon']
-					directionscall(google_key, stop, origin, dest, waypoints, fname)
+					# directionscall(google_key, stop, origin, dest, waypoints, fname)
+					osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
 					waypoints = ""
+					osrmpoints = []
 					segmentcount += 1
 					continue
 
@@ -248,13 +320,16 @@ def getDirections():
 
 			elif stopcount == 9 or lastCheck == 0:
 				dest = stop['lat'] + "," + stop['lon'] 
-				directionscall(google_key, stop, origin, dest, waypoints, fname)
+				# directionscall(google_key, stop, origin, dest, waypoints, fname)
+				osrmDirectionsCall(stop, origin, dest, osrmpoints, fname)
 				stopcount = 1
 				waypoints = ""
+				osrmpoints = []
 				segmentcount += 1
 				continue
 			else:
 				waypoints += stop['lat'] + "," + stop['lon'] + "|"
+				osrmpoints.append(stop['lat'] + "," + stop['lon'])
 				stopcount += 1
 
 
@@ -270,7 +345,25 @@ def directionscall(google_key, stop, origin, dest, waypoints, fname):
 	data = json.load(response)
 	with open(fname, 'w') as outfile:
 		json.dump(data, outfile)
-	
+
+def osrmDirectionsCall(stop, origin, dest, osrmpoints, fname):
+	print "getting dirs..."
+	base = 'http://router.project-osrm.org/viaroute?'
+	viastring = ""
+	for point in osrmpoints:
+		viastring += 'loc=' + point + '&'
+
+	params = 'loc=' + origin + '&' + viastring + 'loc=' + dest
+	# params = urllib.urlencode({'loc': origin, 'loc': dest, 'waypoints': waypoints, 'sensor': 'false','key': google_key})
+	print params
+	# if waypoints == "":
+	with open("log.txt", 'a') as log:
+		log.write(base + params + '\n')
+	response = urllib.urlopen(base + params)
+	data = json.load(response)
+	with open(fname, 'w') as outfile:
+		json.dump(data, outfile)
+
 def shapesToGeojson():
 	json_data=open('data.txt')
 	datadir = os.path.join(os.getcwd(), 'data')
@@ -547,12 +640,13 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 
 	return points
 if __name__ == '__main__':
-	processGtfs()
+	# processGtfs()
 
 	# The following methods are for doing conversions between shapes.txt and geojson files (and vice versa).
-	# shapesToGeojson()
+	shapesToGeojson()
 	# geojsonToShapes()
 
-	getDirections()
-	processPolylines()
-	modifyTrips()
+	# getDirections()
+	# processPolylines()
+	# processOsrmPolylines()
+	# modifyTrips()
