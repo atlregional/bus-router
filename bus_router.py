@@ -318,16 +318,26 @@ def shapesToGeojson():
 		features = []
 		currentTrip = ''
 		for i, point in enumerate(shapesreader):
-			if point['shape_pt_sequence'] == '0' and i > 0:
+			if point['shape_pt_sequence'] == '0':
+				print 'creating trip'
 				currentTrip = point['shape_id']
-				ls = LineString(jsonpoints)
-				feature = Feature(geometry=ls, properties={"shape_id": currentTrip})
-				features.append(feature)
-				jsonpoints = []
+				if i > 0:
+					ls = LineString(jsonpoints)
+					feature = Feature(geometry=ls, properties={"shape_id": currentTrip})
+					# print feature
+					features.append(feature)
+					jsonpoints = []
 			else:
 				pnt = (float(point['shape_pt_lon']), float(point['shape_pt_lat']))
+				# print pnt
 				jsonpoints.append(pnt)
-				
+
+		# write linestring for last shape
+		ls = LineString(jsonpoints)
+		feature = Feature(geometry=ls, properties={"shape_id": currentTrip})
+		print feature
+		features.append(feature)
+		jsonpoints = []		
 		fc = FeatureCollection(features)
 		print fc
 
@@ -336,30 +346,6 @@ def shapesToGeojson():
 		with open(geojsonfile, 'wb') as tripgeo:
 			geojson.dump(fc, tripgeo)
 
-
-
-	# 		else:
-	# 			simplified = simplify(legpoints, .0002, True)
-	# 			# print "new:" + str(simplified)
-	# 			count = 0
-	# 			for point in simplified:
-	# 				pnt = Point(point['x'], point['y'])
-	# 				jsonpoints.append(pnt)
-	# 				shppoint = [point['x'], point['y']]
-	# 				shppoint.insert(0, trip)
-	# 				shppoint.insert(1, count)
-	# 				shppoint.insert(2, "")
-	# 				shapeswriter.writerow(shppoint)
-	# 				count += 1
-	# 			ls = LineString(jsonpoints)
-	# 			gc = GeometryCollection(ls)
-
-	# 			geoj = gc.geojson
-	# 			gtfsfile = os.path.join(geojsondir, trip + '.geojson')
-
-	# 			with open(gtfsfile, 'wb') as tripgeo:
-	# 				# json.dump(geoj, tripgeo)
-	# 				tripgeo.write(geoj)
 
 def geojsonToShapes():
 	datadir = os.path.join(os.getcwd(), 'data')
@@ -593,12 +579,12 @@ if __name__ == '__main__':
 	else:
 		args.dir = 'osrm'
 	if args.shapes:
-		print "creating shapes.txt from GeoJSON"
-		shapesToGeojson()
+		print "converting GeoJSON to shapes.txt"
+		geojsonToShapes()
 		sys.exit()
 	if args.geojson:
-		print "creating GeoJSON from shapes.txt"
-		geojsonToShapes()
+		print "converting shapes.txt to GeoJSON"
+		shapesToGeojson()
 		sys.exit()
 	if args.lines:
 		print "processing polylines (no directions call or GTFS processing) using polylines from " + args.dir
