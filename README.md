@@ -49,6 +49,18 @@ optional arguments:
   -g, --geojson        create GeoJSON from shapes.txt
 ```
 
+## Notes on Data Licensing
+
+### Google Directions API
+It should be noted that using the [Google Directions API](https://developers.google.com/maps/documentation/directions/) to create these routes is [questionable at best from a licensing perspective](https://groups.google.com/d/msg/transit-developers/EIe2dRsRWyY/IlGSd2oPG0gJ) ([Google ToS](https://developers.google.com/maps/terms)).  Ironically enough, this tool could very well be used by public transport agencies to feed data to Google Transit...
+
+### OSRM API/OpenStreetMap
+The default option for creating bus routes here is the [Open Source Routing Machine (OSRM)](http://project-osrm.org/).  As such, any routes derived from this tool is subject to the [ODbL](http://opendatacommons.org/licenses/odbl/).  
+
+Be sure that any use of this tool is respectful of OSRM's [API Usage Policy](https://github.com/Project-OSRM/osrm-backend/wiki/Api-usage-policy).
+
+Big thanks to OSRM for creating a routing engine for the entire globe!
+
 ## Known Limitations
 
 There are a few finicky things about this script at the moment.
