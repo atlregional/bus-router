@@ -1,1 +1,5 @@
 env.json
+*.DS_Store
+data.txt
+log.txt
+names.json
