@@ -640,13 +640,13 @@ def simplify(points, tolerance=0.1, highestQuality=True):
 
 	return points
 if __name__ == '__main__':
-	# processGtfs()
+	processGtfs()
 
 	# The following methods are for doing conversions between shapes.txt and geojson files (and vice versa).
-	shapesToGeojson()
+	# shapesToGeojson()
 	# geojsonToShapes()
 
-	# getDirections()
+	getDirections()
 	# processPolylines()
-	# processOsrmPolylines()
-	# modifyTrips()
+	processOsrmPolylines()
+	modifyTrips()
