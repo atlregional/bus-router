@@ -35,7 +35,7 @@ Final word: you can adjust the "smoothness" of the final shapes, by changing the
 
     `cd bus-router`
 
-    `python bus-router.py`
+    `python bus_router.py`
   	
 ## Optional command-line arguments
 
@@ -55,6 +55,8 @@ optional arguments:
 
 ### Google Directions API
 It should be noted that using the [Google Directions API](https://developers.google.com/maps/documentation/directions/) to create these routes is [questionable at best from a licensing perspective](https://groups.google.com/d/msg/transit-developers/EIe2dRsRWyY/IlGSd2oPG0gJ) ([Google ToS](https://developers.google.com/maps/terms)).  Ironically enough, this tool could very well be used by public transport agencies to feed data to Google Transit...
+
+*UPDATE*: It is now pretty explicitly against the [Google Maps Terms of Service](https://developers.google.com/maps/terms) to use the API to create these routes under the new derivative works section 10.5 b.
 
 ### OSRM API/OpenStreetMap
 The default option for creating bus routes here is the [Open Source Routing Machine (OSRM)](http://project-osrm.org/).  As such, any routes derived from this tool is subject to the [ODbL](http://opendatacommons.org/licenses/odbl/).  
